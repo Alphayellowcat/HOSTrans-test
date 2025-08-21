@@ -67,6 +67,7 @@ class TransparentWindow(QMainWindow):
 
         self.old_pos = None
         self.handle = None
+        self.encoding_format = 'utf-8'
         self.get_translator()
 
     def init_ui(self):
@@ -189,28 +190,30 @@ class TransparentWindow(QMainWindow):
             self.pid = get_process_id(GAME_APP_NAME)
         if not self.handle:
             self.handle = get_process_handle(self.pid)
+        self.add_msg('PID:{} Handle:{}'.format(self.pid, self.handle))
 
     def locate_memory_region(self):
         self.get_process_handle()
         count = 1
-        encoding_format = 'utf-8'
+
         while True:
             if count > 3:
-                encoding_format = 'utf-16'
+                self.encoding_format = 'utf-16'
             if count > 6:
-                self.add_msg('三次初始化失败，请尝试重启游戏和插件'.format(count))
+                self.add_msg('六次初始化失败，请尝试重启游戏和插件'.format(count))
                 break
             ok = False
             self.add_msg('第{}次尝试初始化，请不要操作键鼠'.format(count))
             QApplication.processEvents()
             random_chat_msg = self.send_random_chat_msg()
 
-            candidate_address = scan_memory_bytes(self.handle, random_chat_msg.encode(encoding=encoding_format))  # 粗定位
+            candidate_address = scan_memory_bytes(self.handle, random_chat_msg.encode(encoding=self.encoding_format))  # 粗定位
             if not candidate_address:
                 self.add_msg('第{}次初始化失败，将再次尝试'.format(count))
                 count += 1
                 continue
-
+            self.add_msg('粗定位成功')
+            QApplication.processEvents()
             while True:
                 if ok:
                     break
@@ -218,7 +221,7 @@ class TransparentWindow(QMainWindow):
                 for address in candidate_address:
                     random_chat_msg = self.send_random_chat_msg()
                     try:
-                        data = read_string(self.handle, address, 30, encoding_format)
+                        data = read_string(self.handle, address, 30, self.encoding_format)
                         if data is None:
                             continue
                         if random_chat_msg in data:
@@ -227,6 +230,8 @@ class TransparentWindow(QMainWindow):
                         continue
                 if len(new_candidate_address) > 1:  # 多个相关地址，需要继续排除
                     candidate_address = new_candidate_address
+                    self.add_msg('多个相关地址，继续排除')
+                    QApplication.processEvents()
                     continue
                 elif len(new_candidate_address) == 1:  # 找到唯一地址
                     ok = True
@@ -234,6 +239,7 @@ class TransparentWindow(QMainWindow):
                     break
                 else:  # 找不到任何相关地址， 重新初定位
                     self.add_msg('第{}次初始化失败，将再次尝试'.format(count))
+                    QApplication.processEvents()
                     count += 1
                     break
 
@@ -275,7 +281,7 @@ class TransparentWindow(QMainWindow):
             return
         if not self.init_state:
             return
-        text = read_string(self.handle, self.address, 200)
+        text = read_string(self.handle, self.address, 200, self.encoding_format)
         if text is None:
             return
         sys_msgs = ['综合 한국어', '<c val="3184FF">[团队]:</c>', '浏览战利', '浏览收藏', '菜单']
