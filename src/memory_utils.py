@@ -85,18 +85,18 @@ def read_process_memory(process_handle, address, size=4):
     #     kernel32.CloseHandle(process_handle)
 
 
-def read_int(pid, address):
-    data = read_process_memory(pid, address, 4)
+def read_int(handle, address):
+    data = read_process_memory(handle, address, 4)
     return int.from_bytes(data, 'little')
 
 
-def read_float(pid, address):
-    data = read_process_memory(pid, address, 4)
+def read_float(handle, address):
+    data = read_process_memory(handle, address, 4)
     return struct.unpack('<f', data)[0]
 
 
-def read_string(pid, address, max_length=100, encoding_format='utf-8'):
-    data = read_process_memory(pid, address, max_length)
+def read_string(handle, address, max_length=100, encoding_format='utf-8'):
+    data = read_process_memory(handle, address, max_length)
     if data is None:
         return data
     return data.split(b'\x00')[0].decode(encoding=encoding_format)
