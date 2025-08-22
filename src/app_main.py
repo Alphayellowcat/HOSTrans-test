@@ -197,17 +197,20 @@ class TransparentWindow(QMainWindow):
         count = 1
 
         while True:
-            if count > 3:
+            if 3 < count <= 6:
+                self.encoding_format = 'utf-16le'
+            if 6 < count <= 9:
                 self.encoding_format = 'utf-16'
-            if count > 6:
-                self.add_msg('六次初始化失败，请尝试重启游戏和插件'.format(count))
+            if count > 9:
+                self.add_msg('初始化失败，请尝试重启游戏和插件'.format(count))
                 break
             ok = False
             self.add_msg('第{}次尝试初始化，请不要操作键鼠'.format(count))
             QApplication.processEvents()
             random_chat_msg = self.send_random_chat_msg()
 
-            candidate_address = scan_memory_bytes(self.handle, random_chat_msg.encode(encoding=self.encoding_format))  # 粗定位
+            candidate_address = scan_memory_bytes(self.handle,
+                                                  random_chat_msg.encode(encoding=self.encoding_format))  # 粗定位
             if not candidate_address:
                 self.add_msg('第{}次初始化失败，将再次尝试'.format(count))
                 count += 1
