@@ -19,7 +19,7 @@ GAME_APP_NAME = 'HeroesOfTheStorm_x64.exe'
 
 
 def generate_random_string(length):
-    characters =  ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    characters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     random_string = ''.join(random.choice(characters) for i in range(length))
     return random_string
 
@@ -195,64 +195,29 @@ class TransparentWindow(QMainWindow):
 
     def locate_memory_region(self):
         self.get_process_handle()
-        count = 1
+        encoding_formats = ['utf-8', 'utf-16le', 'utf-16']
+        self.add_msg('初始化中，不要操作键鼠')
+        for encoding_format in encoding_formats:
+            candidate_address_list = []
+            for _ in range(3):
+                random_chat_msg = self.send_random_chat_msg()
 
-        while True:
-            if 3 < count <= 6:
-                self.encoding_format = 'utf-16le'
-            if 6 < count <= 9:
-                self.encoding_format = 'utf-16'
-            if count > 9:
-                self.add_msg('初始化失败，请尝试重启游戏和插件'.format(count))
+                candidate_address = scan_memory_bytes(self.handle,
+                                                      random_chat_msg.encode(encoding=encoding_format))  # 粗定位
+                candidate_address_list.append(candidate_address)
+            candidate_address_list = [set(v) for v in candidate_address_list]
+            candidate_address = candidate_address_list[0] & candidate_address_list[1] & candidate_address_list[2]
+            candidate_address = list(candidate_address)
+            if len(candidate_address) == 1:
+                self.address = candidate_address[0]
+                self.encoding_format = encoding_format
                 break
-            ok = False
-            self.add_msg('第{}次尝试初始化，请不要操作键鼠'.format(count))
-            QApplication.processEvents()
-            random_chat_msg = self.send_random_chat_msg()
-
-            candidate_address = scan_memory_bytes(self.handle,
-                                                  random_chat_msg.encode(encoding=self.encoding_format))  # 粗定位
-            if not candidate_address:
-                self.add_msg('第{}次初始化失败，将再次尝试'.format(count))
-                count += 1
-                continue
-            self.add_msg('粗定位成功')
-            QApplication.processEvents()
-            while True:
-                if ok:
-                    break
-                new_candidate_address = []
-                for address in candidate_address:
-                    random_chat_msg = self.send_random_chat_msg()
-                    try:
-                        data = read_string(self.handle, address, 30, self.encoding_format)
-                        if data is None:
-                            continue
-                        if random_chat_msg in data:
-                            new_candidate_address.append(address)
-                    except Exception as e:
-                        continue
-                if len(new_candidate_address) > 1:  # 多个相关地址，需要继续排除
-                    candidate_address = new_candidate_address
-                    self.add_msg('多个相关地址，继续排除')
-                    QApplication.processEvents()
-                    continue
-                elif len(new_candidate_address) == 1:  # 找到唯一地址
-                    ok = True
-                    self.address = new_candidate_address[0]
-                    break
-                else:  # 找不到任何相关地址， 重新初定位
-                    self.add_msg('第{}次初始化失败，将再次尝试'.format(count))
-                    QApplication.processEvents()
-                    count += 1
-                    break
-
-            if ok:
-                self.hide_win_timer.start(4500)
-                self.init_state = True
-                self.add_msg('初始化成功, 监听地址{}'.format(hex(self.address)))
-                break
-            time.sleep(0.1)
+        if self.address is not None:
+            self.hide_win_timer.start(4500)
+            self.init_state = True
+            self.add_msg('初始化成功, 监听地址{}'.format(hex(self.address)))
+        else:
+            self.add_msg('初始化失败，请尝试重启游戏和插件')
 
     def auto_trans(self):
         if not window_exists("《风暴英雄》"):
