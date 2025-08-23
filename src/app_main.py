@@ -19,7 +19,7 @@ GAME_APP_NAME = 'HeroesOfTheStorm_x64.exe'
 
 
 def generate_random_string(length):
-    characters = string.ascii_letters + string.digits
+    characters =  ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     random_string = ''.join(random.choice(characters) for i in range(length))
     return random_string
 
@@ -45,7 +45,7 @@ class HotKey(object):
 
     def run(self):
         pyautogui.hotkey(self.key)
-        time.sleep(0.01)
+        time.sleep(0.4)
 
 
 class TransparentWindow(QMainWindow):
@@ -176,13 +176,14 @@ class TransparentWindow(QMainWindow):
     def send_random_chat_msg(self):
         enter = HotKey('enter')
         paste = HotKey(('ctrl', 'v'))
-        random_chat_msg = generate_random_string(10)
-        clipboard = QApplication.clipboard()
-        clipboard.setText(random_chat_msg)
+        random_chat_msg = generate_random_string(12)
         enter.run()
-        paste.run()
+        for char in random_chat_msg:
+            hk = HotKey(char)
+            hk.run()
+        # paste.run()
         enter.run()
-        time.sleep(0.01)
+        time.sleep(1)
         return random_chat_msg
 
     def get_process_handle(self):
