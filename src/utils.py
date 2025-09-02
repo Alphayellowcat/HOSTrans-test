@@ -1,6 +1,6 @@
 import win32gui
 import re
-
+import random
 
 def switch_window(window_title):
     def enum_windows_proc(hwnd, window_title):
@@ -33,3 +33,9 @@ def window_exists(window_title):
 def contains_korean(text):
     korean_pattern = re.compile('[\uAC00-\uD7AF\u3130-\u318F\u1100-\u11FF]')
     return bool(korean_pattern.search(text))
+
+
+def generate_random_string(length):
+    characters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    random_string = ''.join(random.choice(characters) for i in range(length))
+    return random_string

@@ -3,6 +3,7 @@ import hashlib
 import urllib
 import random
 import json
+import os
 
 
 class BaiduTranslator(object):
@@ -34,3 +35,13 @@ class BaiduTranslator(object):
         finally:
             if httpClient:
                 httpClient.close()
+
+
+def create_translator():
+    if os.path.exists('baiduAPI.txt'):
+        with open('baiduAPI.txt', 'r') as f:
+            lines = f.readlines()
+            lines = [l.replace('\n', '') for l in lines]
+            appid, secretkey = lines[:2]
+            return BaiduTranslator(appid, secretkey)
+    return None

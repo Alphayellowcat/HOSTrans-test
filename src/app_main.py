@@ -6,22 +6,14 @@ from PyQt5.QtCore import Qt, QTimer
 import pyautogui
 import time
 import sys
-from translator import BaiduTranslator
-from utils import window_exists, contains_korean
+from translator import create_translator
+from utils import window_exists, contains_korean, generate_random_string
 import os
 from memory_utils import read_string, get_process_id, get_process_handle, scan_memory_bytes, CloseHandle
 import keyboard
-import random
-import string
 from qss_style import list_widget_style, main_style, title_label_style
 
 GAME_APP_NAME = 'HeroesOfTheStorm_x64.exe'
-
-
-def generate_random_string(length):
-    characters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-    random_string = ''.join(random.choice(characters) for i in range(length))
-    return random_string
 
 
 class GlobalHotkey(QObject):
@@ -115,13 +107,7 @@ class TransparentWindow(QMainWindow):
         self.hide_win_timer.start(4500)
 
     def get_translator(self):
-        if os.path.exists('baiduAPI.txt'):
-            with open('baiduAPI.txt', 'r') as f:
-                lines = f.readlines()
-                lines = [l.replace('\n', '') for l in lines]
-                appid, secretkey = lines[:2]
-        self.trans = BaiduTranslator(appid,
-                                     secretkey)
+        self.trans = create_translator()
 
     def hide_win(self):
         if self.hided:
