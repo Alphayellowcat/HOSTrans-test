@@ -61,6 +61,7 @@ class TransparentWindow(QMainWindow):
         self.handle = None
         self.encoding_format = 'utf-8'
         self.get_translator()
+        self.target_lan = 'kor'
 
     def init_ui(self):
         # 设置窗口属性
@@ -128,6 +129,9 @@ class TransparentWindow(QMainWindow):
         hotkey = GlobalHotkey("ctrl+p")
         hotkey.triggered.connect(self.auto_trans)
 
+        hotkey = GlobalHotkey("ctrl+l")
+        hotkey.triggered.connect(self.switch_lan)
+
         hotkey = GlobalHotkey("ctrl+1")
         hotkey.triggered.connect(self.locate_memory_region)
 
@@ -152,6 +156,15 @@ class TransparentWindow(QMainWindow):
         # 绘制圆角矩形
         rect = self.rect()
         painter.drawRoundedRect(rect, 10, 10)
+
+    def switch_lan(self):
+        if self.target_lan == 'kor':
+            self.target_lan = 'en'
+            lan = '英语'
+        else:
+            self.target_lan = 'kor'
+            lan = '韩语'
+        self.add_msg(f'翻译模式:中译{lan}')
 
     def add_msg(self, msg):
         self.list_widget.addItem(msg)
@@ -221,9 +234,9 @@ class TransparentWindow(QMainWindow):
         chinese_text = clipboard.text()
         if not chinese_text:
             return
-        korean_text = self.trans.trans(chinese_text, toLang='kor', fromLang='zh')
-        clipboard.setText(korean_text)
-        self.my_last_msg = korean_text
+        foreign_text = self.trans.trans(chinese_text, toLang=self.target_lan, fromLang='zh')
+        clipboard.setText(foreign_text)
+        self.my_last_msg = foreign_text
         for _ in range(2):
             select_all.run()
             paste.run()
