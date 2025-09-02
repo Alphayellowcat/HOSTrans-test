@@ -96,10 +96,16 @@ def read_float(handle, address):
 
 
 def read_string(handle, address, max_length=100, encoding_format='utf-8'):
-    data = read_process_memory(handle, address, max_length)
-    if data is None:
-        return data
-    return data.split(b'\x00')[0].decode(encoding=encoding_format)
+    buffer = bytearray()
+    for i in range(0, max_length, 2):
+        chunk = read_process_memory(handle, address + i, 2)
+        if not chunk or chunk == b"\x00\x00":
+            break
+        buffer.extend(chunk)
+    try:
+        return buffer.decode(encoding_format)
+    except UnicodeDecodeError:
+        return buffer.decode(encoding_format, errors="ignore")
 
 
 def scan_memory_bytes(handle, pattern_bytes):
