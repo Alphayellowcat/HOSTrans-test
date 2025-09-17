@@ -95,17 +95,53 @@ def read_float(handle, address):
     return struct.unpack('<f', data)[0]
 
 
+def _get_char_width(encoding_format):
+    """Determine byte width for a single character based on encoding."""
+    if not encoding_format:
+        return 1
+
+    normalized = encoding_format.replace('_', '-').lower()
+
+    if normalized.startswith('utf-32') or 'ucs-4' in normalized:
+        return 4
+    if normalized.startswith('utf-16') or 'ucs-2' in normalized:
+        return 2
+
+    return 1
+
+
 def read_string(handle, address, max_length=100, encoding_format='utf-8'):
+    encoding = encoding_format or 'utf-8'
+    char_width = _get_char_width(encoding)
+    terminator = b"\x00" * max(char_width, 1)
+
     buffer = bytearray()
-    for i in range(0, max_length, 2):
-        chunk = read_process_memory(handle, address + i, 2)
-        if not chunk or chunk == b"\x00\x00":
+    offset = 0
+
+    # Ensure we only read complete characters worth of bytes to avoid leftovers.
+    max_bytes = max_length if max_length else 0
+    max_steps = (max_bytes // char_width) if max_bytes else None
+
+    steps = 0
+    while max_steps is None or steps < max_steps:
+        chunk = read_process_memory(handle, address + offset, char_width)
+        if not chunk or len(chunk) < char_width:
             break
+
+        if chunk == terminator:
+            break
+
         buffer.extend(chunk)
+        offset += char_width
+        steps += 1
+
     try:
-        return buffer.decode(encoding_format)
+        return buffer.decode(encoding)
+    except LookupError:
+        # Unknown encoding, fall back to UTF-8 while ignoring undecodable bytes.
+        return buffer.decode('utf-8', errors='ignore')
     except UnicodeDecodeError:
-        return buffer.decode(encoding_format, errors="ignore")
+        return buffer.decode(encoding, errors="ignore")
 
 
 def scan_memory_bytes(handle, pattern_bytes):
