@@ -2,14 +2,19 @@ import copy
 import hashlib
 import http.client
 import json
+import logging
 import os
 import random
+import socket
 import time
 import urllib
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, 'translator_config.json')
+
+LOGGER = logging.getLogger(__name__)
+REQUEST_TIMEOUT = 5
 
 
 TRANSLATOR_SPECS = {
@@ -104,9 +109,10 @@ def save_config(config):
 
 
 class BaiduTranslator(object):
-    def __init__(self, appid, secretkey):
+    def __init__(self, appid, secretkey, timeout=REQUEST_TIMEOUT):
         self.appid = appid
         self.secretKey = secretkey
+        self.timeout = timeout
 
     def trans(self, src_text, fromLang='auto', toLang='zh'):
         httpClient = None
@@ -118,7 +124,7 @@ class BaiduTranslator(object):
             src_text) + '&from=' + fromLang + '&to=' + toLang + '&salt=' + str(
             salt) + '&sign=' + sign
         try:
-            httpClient = http.client.HTTPConnection('api.fanyi.baidu.com')
+            httpClient = http.client.HTTPConnection('api.fanyi.baidu.com', timeout=self.timeout)
             httpClient.request('GET', myurl)
 
             response = httpClient.getresponse()
@@ -126,8 +132,14 @@ class BaiduTranslator(object):
             result = json.loads(result_all)
 
             return result['trans_result'][0]['dst']
-
-        except Exception:
+        except socket.timeout as exc:
+            LOGGER.warning('Baidu translation request timed out: %s', exc, exc_info=True)
+            return '翻译请求超时，请检查网络连接。'
+        except (OSError, http.client.HTTPException) as exc:
+            LOGGER.warning('Baidu translation network error: %s', exc, exc_info=True)
+            return '网络请求失败，请检查网络设置。'
+        except Exception as exc:
+            LOGGER.exception('Baidu translation unexpected error: %s', exc)
             return '翻译失败!'
         finally:
             if httpClient:
@@ -135,9 +147,10 @@ class BaiduTranslator(object):
 
 
 class DeepLTranslator(object):
-    def __init__(self, auth_key, api_host='api-free.deepl.com'):
+    def __init__(self, auth_key, api_host='api-free.deepl.com', timeout=REQUEST_TIMEOUT):
         self.auth_key = auth_key
         self.api_host = api_host or 'api-free.deepl.com'
+        self.timeout = timeout
 
     def _map_lang(self, lang):
         mapping = {
@@ -157,7 +170,7 @@ class DeepLTranslator(object):
         if fromLang != 'auto':
             params['source_lang'] = self._map_lang(fromLang)
         try:
-            conn = http.client.HTTPSConnection(self.api_host)
+            conn = http.client.HTTPSConnection(self.api_host, timeout=self.timeout)
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             conn.request('POST', '/v2/translate', urllib.parse.urlencode(params), headers)
             response = conn.getresponse()
@@ -169,7 +182,14 @@ class DeepLTranslator(object):
             if not translations:
                 return '翻译失败!'
             return translations[0].get('text', '翻译失败!')
-        except Exception:
+        except socket.timeout as exc:
+            LOGGER.warning('DeepL translation request timed out: %s', exc, exc_info=True)
+            return '翻译请求超时，请检查网络连接。'
+        except (OSError, http.client.HTTPException) as exc:
+            LOGGER.warning('DeepL translation network error: %s', exc, exc_info=True)
+            return '网络请求失败，请检查网络设置。'
+        except Exception as exc:
+            LOGGER.exception('DeepL translation unexpected error: %s', exc)
             return '翻译失败!'
         finally:
             if conn:
@@ -177,9 +197,10 @@ class DeepLTranslator(object):
 
 
 class YoudaoTranslator(object):
-    def __init__(self, app_key, app_secret):
+    def __init__(self, app_key, app_secret, timeout=REQUEST_TIMEOUT):
         self.app_key = app_key
         self.app_secret = app_secret
+        self.timeout = timeout
 
     def _map_lang(self, lang):
         mapping = {
@@ -213,7 +234,7 @@ class YoudaoTranslator(object):
         sign_str = self.app_key + self._truncate(src_text) + salt + curtime + self.app_secret
         params['sign'] = hashlib.sha256(sign_str.encode('utf-8')).hexdigest()
         try:
-            conn = http.client.HTTPSConnection('openapi.youdao.com')
+            conn = http.client.HTTPSConnection('openapi.youdao.com', timeout=self.timeout)
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             conn.request('POST', '/api', urllib.parse.urlencode(params), headers)
             response = conn.getresponse()
@@ -229,7 +250,14 @@ class YoudaoTranslator(object):
             if isinstance(translation, str) and translation:
                 return translation
             return '翻译失败!'
-        except Exception:
+        except socket.timeout as exc:
+            LOGGER.warning('Youdao translation request timed out: %s', exc, exc_info=True)
+            return '翻译请求超时，请检查网络连接。'
+        except (OSError, http.client.HTTPException) as exc:
+            LOGGER.warning('Youdao translation network error: %s', exc, exc_info=True)
+            return '网络请求失败，请检查网络设置。'
+        except Exception as exc:
+            LOGGER.exception('Youdao translation unexpected error: %s', exc)
             return '翻译失败!'
         finally:
             if conn:
@@ -237,9 +265,10 @@ class YoudaoTranslator(object):
 
 
 class PapagoTranslator(object):
-    def __init__(self, client_id, client_secret):
+    def __init__(self, client_id, client_secret, timeout=REQUEST_TIMEOUT):
         self.client_id = client_id
         self.client_secret = client_secret
+        self.timeout = timeout
 
     def _map_lang(self, lang):
         mapping = {
@@ -262,7 +291,7 @@ class PapagoTranslator(object):
     def _detect_lang(self, text):
         conn = None
         try:
-            conn = http.client.HTTPSConnection('openapi.naver.com')
+            conn = http.client.HTTPSConnection('openapi.naver.com', timeout=self.timeout)
             params = urllib.parse.urlencode({'query': text})
             conn.request('POST', '/v1/papago/detectLangs', params, self._build_headers())
             response = conn.getresponse()
@@ -271,7 +300,14 @@ class PapagoTranslator(object):
             payload = response.read().decode('utf-8')
             data = json.loads(payload)
             return data.get('langCode')
-        except Exception:
+        except socket.timeout as exc:
+            LOGGER.warning('Papago language detection timed out: %s', exc, exc_info=True)
+            return None
+        except (OSError, http.client.HTTPException) as exc:
+            LOGGER.warning('Papago language detection network error: %s', exc, exc_info=True)
+            return None
+        except Exception as exc:
+            LOGGER.exception('Papago language detection unexpected error: %s', exc)
             return None
         finally:
             if conn:
@@ -294,7 +330,7 @@ class PapagoTranslator(object):
             'text': src_text,
         })
         try:
-            conn = http.client.HTTPSConnection('openapi.naver.com')
+            conn = http.client.HTTPSConnection('openapi.naver.com', timeout=self.timeout)
             conn.request('POST', '/v1/papago/n2mt', params, self._build_headers())
             response = conn.getresponse()
             if response.status != 200:
@@ -307,7 +343,14 @@ class PapagoTranslator(object):
             if translated:
                 return translated
             return '翻译失败!'
-        except Exception:
+        except socket.timeout as exc:
+            LOGGER.warning('Papago translation request timed out: %s', exc, exc_info=True)
+            return '翻译请求超时，请检查网络连接。'
+        except (OSError, http.client.HTTPException) as exc:
+            LOGGER.warning('Papago translation network error: %s', exc, exc_info=True)
+            return '网络请求失败，请检查网络设置。'
+        except Exception as exc:
+            LOGGER.exception('Papago translation unexpected error: %s', exc)
             return '翻译失败!'
         finally:
             if conn:
